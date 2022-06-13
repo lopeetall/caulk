@@ -1,16 +1,13 @@
-#![allow(non_snake_case)]
 use std::cmp::max;
 
-use ark_bls12_381::{Bls12_381, Fr, G1Affine, G1Projective, G2Affine};
-use ark_ec::{bls12::Bls12, AffineCurve, PairingEngine, ProjectiveCurve};
-use ark_ff::*;
-use ark_poly::{
-    univariate::DensePolynomial, EvaluationDomain, GeneralEvaluationDomain, UVPolynomial,
-};
+use ark_bls12_381::{G1Projective, G1Affine, G2Affine, Fr, Bls12_381};
+use ark_ec::{bls12::Bls12, PairingEngine, ProjectiveCurve, AffineCurve};
+use ark_ff::Field;
+use ark_poly::{GeneralEvaluationDomain, EvaluationDomain, univariate::DensePolynomial, UVPolynomial};
 use ark_poly_commit::kzg10::{Powers, KZG10};
+use ark_std::{UniformRand, One};
 
-mod tools;
-use crate::tools::*;
+use crate::tools::{trim, commit};
 
 type UniPoly381 = DensePolynomial<<Bls12_381 as PairingEngine>::Fr>;
 type KzgBls12_381 = KZG10<Bls12_381, UniPoly381>;
@@ -71,7 +68,7 @@ pub fn setup(n: usize) -> Setup {
     }
 }
 
-fn prove(setup: &Setup, entries: &[Fr], index: usize, value: Fr) -> Proof {
+pub fn prove(setup: &Setup, entries: &[Fr], index: usize, value: Fr) -> Proof {
     let rng = &mut rand::thread_rng();
 
     let domain = setup.domain;
@@ -140,37 +137,41 @@ pub fn verify(setup: &Setup, entries: &[Fr], proof: Proof) -> bool {
     pairing_left == pairing_right
 }
 
-fn main() {
-    let rng = &mut rand::thread_rng();
+#[cfg(test)]
+mod tests {
+    use ark_bls12_381::Fr;
+    use crate::single::*;
 
-    let num_of_entries = 100;
+    #[test]
+    pub(crate) fn test_single_opening() {
+        let rng = &mut rand::thread_rng();
 
-    // we have a list of field elements
-    let entries: Vec<Fr> = (0..num_of_entries)
-        .into_iter()
-        .map(|_i| Fr::rand(rng))
-        .collect();
-
-    let setup = setup(num_of_entries);
-
-    // the Prover owns the entry at index 47
-    let prover_entry_index = 47usize;
-    let prover_entry = entries[prover_entry_index];
-
-    // Prover constructs a proof which contains a hiding Pedersen commitment to their entry
-    let proof = prove(&setup, &entries, prover_entry_index, prover_entry);
-
-    // Verifier verifies the Prover's Pedersen commitment corresponds to some entry in the list
-    let result = verify(&setup, &entries, proof);
-
-    //  NOTE: as currently written the verifier code is incomplete
-    //  TODO:
-    //      - verify pedersen commitment opening as in Section 4.7
-    //      - verify that z_comm is correctly constructed as in Section 6.2
-
-    if result {
-        println!("Proof verified!")
-    } else {
-        println!("Proof invalid")
+        let num_of_entries = 100;
+    
+        // we have a list of field elements
+        let entries: Vec<Fr> = (0..num_of_entries)
+            .into_iter()
+            .map(|_i| Fr::rand(rng))
+            .collect();
+    
+        let setup = setup(num_of_entries);
+    
+        // the Prover owns the entry at index 47
+        let prover_entry_index = 47usize;
+        let prover_entry = entries[prover_entry_index];
+    
+        // Prover constructs a proof which contains a hiding Pedersen commitment to their entry
+        let proof = prove(&setup, &entries, prover_entry_index, prover_entry);
+    
+        // Verifier verifies the Prover's Pedersen commitment corresponds to some entry in the list
+        let result = verify(&setup, &entries, proof);
+    
+        //  NOTE: as currently written the verifier code is incomplete
+        //  TODO:
+        //      - verify pedersen commitment opening as in Section 4.7
+        //      - verify that z_comm is correctly constructed as in Section 6.2
+    
+        assert!(result)
     }
+
 }
