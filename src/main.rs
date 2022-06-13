@@ -145,7 +145,7 @@ fn main() {
 
     let num_of_entries = 100;
 
-    // we have a list of __field_elements__ representing notes
+    // we have a list of field elements
     let entries: Vec<Fr> = (0..num_of_entries)
         .into_iter()
         .map(|_i| Fr::rand(rng))
