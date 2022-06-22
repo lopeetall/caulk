@@ -6,8 +6,10 @@ use ark_ff::Field;
 use ark_poly::{GeneralEvaluationDomain, EvaluationDomain, univariate::DensePolynomial, UVPolynomial};
 use ark_poly_commit::kzg10::{Powers, KZG10};
 use ark_std::{UniformRand, One};
+use merlin::Transcript;
 
 use crate::tools::{trim, commit};
+use crate::transcript::*;
 
 type UniPoly381 = DensePolynomial<<Bls12_381 as PairingEngine>::Fr>;
 type KzgBls12_381 = KZG10<Bls12_381, UniPoly381>;
@@ -68,7 +70,7 @@ pub fn setup(n: usize) -> Setup {
     }
 }
 
-pub fn prove(setup: &Setup, entries: &[Fr], index: usize, value: Fr) -> Proof {
+pub fn prove(setup: &Setup, entries: &[Fr], index: usize, value: Fr, transcript: &mut Transcript) -> Proof {
     let rng = &mut rand::thread_rng();
 
     let domain = setup.domain;
@@ -77,6 +79,14 @@ pub fn prove(setup: &Setup, entries: &[Fr], index: usize, value: Fr) -> Proof {
     let xg2 = setup.xg2;
     let h = setup.h;
     let ck = &setup.ck;
+
+    // add setup information to transcript
+    append(transcript, b"domain_generator", domain.element(1));
+    append(transcript, b"group_1_generator", g1);
+    append(transcript, b"group_1_generator_next", ck.powers_of_g[1]);
+    append(transcript, b"group_2_generator", g2);
+    append(transcript, b"group_2_generator_next", xg2);
+    append(transcript, b"pedersen_base", h);
 
     // Prover's computes `cm` which is a Pedersen commitment to `value` using randomness `r`
     //  cm = value*[g1] + r*[h]
